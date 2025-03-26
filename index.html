@@ -4,9 +4,8 @@
   <meta charset="UTF-8" />
   <title>Equipment Demo with IndexedDB</title>
   <!--
-    Updated:
-    1) Menu now populated with more realistic industrial equipment.
-    2) After selecting files via "Add Photos" button, we show a small status.
+    Fix for "Add Photos" button not updating.
+    We'll add some debug messages and ensure we show the file count.
   -->
 </head>
 <body>
@@ -210,15 +209,21 @@
     const reqFin = document.getElementById('reqFin');
     const saveBtn = document.getElementById('saveBtn');
 
-    photoInput.addEventListener('change', (e) => {
+    photoInput.addEventListener('change', async (e) => {
+      console.log('File input changed!', e.target.files);
       if (!currentItem) {
         alert('Select an item first!');
         photoInput.value = null;
         return;
       }
       const files = e.target.files;
-      if (!files || files.length === 0) return;
-      handlePhotos(files);
+      console.log('User selected files: ', files);
+      if (!files || files.length === 0) {
+        uploadStatus.textContent = 'No files selected.';
+        return;
+      }
+      uploadStatus.textContent = `Processing ${files.length} file(s)...`;
+      await handlePhotos(files);
       photoInput.value = null;
     });
 
@@ -246,10 +251,12 @@
     });
 
     async function handlePhotos(fileList) {
+      console.log('handlePhotos called with fileList length: ', fileList.length);
       const itemData = await getItemData(currentItem) || createNewItem(currentItem);
       let addedCount = 0;
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
+        console.log('Reading file: ', file.name);
         const dataUrl = await fileToDataUrl(file);
         itemData.images.push({ src: dataUrl, dots: [] });
         addedCount++;
@@ -257,6 +264,7 @@
       await saveItemData(itemData);
       // Show user feedback
       uploadStatus.textContent = `Uploaded ${addedCount} photo(s).`;
+      console.log('Uploaded photos: ', addedCount);
       // Refresh
       loadItem(currentItem);
     }
@@ -264,8 +272,14 @@
     function fileToDataUrl(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
+        reader.onload = () => {
+          console.log('File read success for: ', file.name);
+          resolve(reader.result);
+        };
+        reader.onerror = () => {
+          console.error('File read error for: ', file.name);
+          reject(reader.error);
+        };
         reader.readAsDataURL(file);
       });
     }
@@ -284,8 +298,10 @@
     }
 
     async function loadItem(itemId) {
+      console.log('Loading item: ', itemId);
       const data = await getItemData(itemId);
       if (!data) {
+        console.log('No data found, creating new item for: ', itemId);
         await saveItemData(createNewItem(itemId));
         loadItem(itemId);
         return;
