@@ -1,60 +1,632 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Equipment Demo</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Equipment Demo with IndexedDB</title>
+  <!--
+    Updated:
+    1) Menu now populated with more realistic industrial equipment.
+    2) After selecting files via "Add Photos" button, we show a small status.
+  -->
 </head>
 <body>
-  <div id="container">
-    <div id="sidebar">
-      <input type="text" id="search" placeholder="Search...">
+  <div id="app">
+    <aside id="sidebar">
+      <input type="text" id="search" placeholder="Search equipment..." />
       <ul id="equipment-list">
-        <li>
-          Motors
-          <ul>
-            <li>
-              Baldwin
-              <ul>
-                <li onclick="selectItem('Motors > Baldwin > 1345')">1345</li>
+        <!-- Motors -->
+        <li class="expandable">
+          <span class="arrow">▶</span>
+          <span class="title">Motors</span>
+          <ul class="nested">
+            <li class="expandable">
+              <span class="arrow">▶</span>
+              <span class="title">Baldor</span>
+              <ul class="nested">
+                <li data-id="motors-baldor-m3708t">M3708T</li>
+                <li data-id="motors-baldor-l3509t">L3509T</li>
               </ul>
             </li>
-            <li>
-              Eaton
-              <ul>
-                <li onclick="selectItem('Motors > Eaton > 5463')">5463</li>
+            <li class="expandable">
+              <span class="arrow">▶</span>
+              <span class="title">Marathon</span>
+              <ul class="nested">
+                <li data-id="motors-marathon-x12345">X12345</li>
+                <li data-id="motors-marathon-w98432">W98432</li>
+              </ul>
+            </li>
+            <li class="expandable">
+              <span class="arrow">▶</span>
+              <span class="title">WEG</span>
+              <ul class="nested">
+                <li data-id="motors-weg-e3432">E3432</li>
               </ul>
             </li>
           </ul>
         </li>
-        <li>
-          Fans
-          <ul>
-            <li onclick="selectItem('Fans > Basic')">Basic</li>
+        <!-- Fans -->
+        <li class="expandable">
+          <span class="arrow">▶</span>
+          <span class="title">Fans</span>
+          <ul class="nested">
+            <li class="expandable">
+              <span class="arrow">▶</span>
+              <span class="title">Greenheck</span>
+              <ul class="nested">
+                <li data-id="fans-greenheck-gseries">GSeries</li>
+                <li data-id="fans-greenheck-s310">S310</li>
+              </ul>
+            </li>
+            <li class="expandable">
+              <span class="arrow">▶</span>
+              <span class="title">AirMaster</span>
+              <ul class="nested">
+                <li data-id="fans-airmaster-x500">X500</li>
+              </ul>
+            </li>
           </ul>
         </li>
-        <li>
-          Gearboxes
-          <ul>
-            <li onclick="selectItem('Gearboxes > Example')">Example</li>
+        <!-- Gearboxes -->
+        <li class="expandable">
+          <span class="arrow">▶</span>
+          <span class="title">Gearboxes</span>
+          <ul class="nested">
+            <li class="expandable">
+              <span class="arrow">▶</span>
+              <span class="title">SEW-EURODRIVE</span>
+              <ul class="nested">
+                <li data-id="gearboxes-sew_eurodrive-r37">R37</li>
+                <li data-id="gearboxes-sew_eurodrive-k50">K50</li>
+              </ul>
+            </li>
           </ul>
         </li>
       </ul>
-    </div>
-    <div id="content">
-      <input type="file" id="imageUpload" accept="image/*">
-      <div id="image-wrapper">
-        <img id="mainImage" onclick="addDot(event)">
+    </aside>
+    <main id="content">
+      <h2 id="item-title">Select an equipment item...</h2>
+
+      <!-- Photo upload -->
+      <div class="photo-controls">
+        <label for="photoInput">Add Photos:</label>
+        <input type="file" id="photoInput" multiple accept="image/*">
+        <p id="uploadStatus" style="margin:5px 0; color:green;"></p>
       </div>
-      <h3>Notes</h3>
-      <textarea id="notes" placeholder="Enter notes here..."></textarea>
-      <h3>Requirements</h3>
-      <label><input type="checkbox" id="req1"> Requirement 1</label><br>
-      <label><input type="checkbox" id="req2"> Requirement 2</label><br>
-      <button onclick="saveData()">Save</button>
-    </div>
+      <div id="dropZone">Drag & Drop Photos Here</div>
+
+      <div id="thumbnails"></div>
+
+      <!-- Large photo area with dots in the same pane -->
+      <div id="photoArea">
+        <img id="largePhoto" />
+        <button id="clearDotsBtn">Clear Dots</button>
+        <button id="deletePhotoBtn">Delete Photo</button>
+      </div>
+
+      <section class="info">
+        <h3>Notes</h3>
+        <textarea id="notes" placeholder="Enter notes here..."></textarea>
+
+        <h3>Number of Sensors Required</h3>
+        <div id="sensor-container">
+          <input type="number" id="sensorsCount" disabled value="0" min="0"/>
+          <button id="editSensorsBtn">Edit</button>
+        </div>
+
+        <h3>Requirements</h3>
+        <label><input type="checkbox" id="reqEpoxy" /> Epoxy Mounts</label><br />
+        <label><input type="checkbox" id="reqNonEpoxy" /> Non-Epoxy Mounts</label><br />
+        <label><input type="checkbox" id="reqFin" /> Fin Mounts</label><br />
+
+        <button id="saveBtn">Save</button>
+      </section>
+    </main>
   </div>
-  <script src="script.js"></script>
+
+  <script>
+    let db = null;
+    let currentItem = "";
+    let currentPhotoIndex = -1;
+
+    // 1) Open or create the IndexedDB database
+    const request = indexedDB.open('equipmentDB', 1);
+    request.onupgradeneeded = function(e) {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains('items')) {
+        db.createObjectStore('items', { keyPath: 'itemId' });
+      }
+    };
+    request.onsuccess = function(e) {
+      db = e.target.result;
+      console.log('IndexedDB opened successfully');
+    };
+    request.onerror = function(e) {
+      console.error('Error opening IndexedDB', e);
+      alert('IndexedDB not supported or error opening DB.');
+    };
+
+    function getItemData(itemId) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return resolve(null);
+        }
+        const tx = db.transaction('items', 'readonly');
+        const store = tx.objectStore('items');
+        const getReq = store.get(itemId);
+        getReq.onsuccess = () => {
+          resolve(getReq.result || null);
+        };
+        getReq.onerror = () => {
+          reject(getReq.error);
+        };
+      });
+    }
+
+    function saveItemData(itemObj) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject('No DB');
+        }
+        const tx = db.transaction('items', 'readwrite');
+        const store = tx.objectStore('items');
+        const putReq = store.put(itemObj);
+        putReq.onsuccess = () => {
+          resolve(true);
+        };
+        putReq.onerror = () => {
+          reject(putReq.error);
+        };
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('arrow')) {
+        const parentLi = e.target.closest('li');
+        const nestedUl = parentLi.querySelector('ul.nested');
+        if (nestedUl) {
+          nestedUl.classList.toggle('active');
+          e.target.textContent = (e.target.textContent === '▶') ? '▼' : '▶';
+        }
+      } else if (e.target.dataset.id) {
+        currentItem = e.target.dataset.id;
+        loadItem(currentItem);
+      }
+    });
+
+    const itemTitle = document.getElementById('item-title');
+    const photoInput = document.getElementById('photoInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const dropZone = document.getElementById('dropZone');
+    const thumbnailsDiv = document.getElementById('thumbnails');
+    const largePhoto = document.getElementById('largePhoto');
+    const clearDotsBtn = document.getElementById('clearDotsBtn');
+    const deletePhotoBtn = document.getElementById('deletePhotoBtn');
+
+    const notesText = document.getElementById('notes');
+    const sensorsCountInput = document.getElementById('sensorsCount');
+    const editSensorsBtn = document.getElementById('editSensorsBtn');
+    const reqEpoxy = document.getElementById('reqEpoxy');
+    const reqNonEpoxy = document.getElementById('reqNonEpoxy');
+    const reqFin = document.getElementById('reqFin');
+    const saveBtn = document.getElementById('saveBtn');
+
+    photoInput.addEventListener('change', (e) => {
+      if (!currentItem) {
+        alert('Select an item first!');
+        photoInput.value = null;
+        return;
+      }
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+      handlePhotos(files);
+      photoInput.value = null;
+    });
+
+    dropZone.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (!currentItem) {
+        alert('Select an item first!');
+        return;
+      }
+      const dtFiles = e.dataTransfer.files;
+      if (dtFiles && dtFiles.length > 0) {
+        handlePhotos(dtFiles);
+      }
+    });
+
+    async function handlePhotos(fileList) {
+      const itemData = await getItemData(currentItem) || createNewItem(currentItem);
+      let addedCount = 0;
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const dataUrl = await fileToDataUrl(file);
+        itemData.images.push({ src: dataUrl, dots: [] });
+        addedCount++;
+      }
+      await saveItemData(itemData);
+      // Show user feedback
+      uploadStatus.textContent = `Uploaded ${addedCount} photo(s).`;
+      // Refresh
+      loadItem(currentItem);
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function createNewItem(itemId) {
+      return {
+        itemId,
+        notes: '',
+        sensorsCount: 0,
+        reqEpoxy: false,
+        reqNonEpoxy: false,
+        reqFin: false,
+        images: [],
+        selectedPhotoIndex: -1
+      };
+    }
+
+    async function loadItem(itemId) {
+      const data = await getItemData(itemId);
+      if (!data) {
+        await saveItemData(createNewItem(itemId));
+        loadItem(itemId);
+        return;
+      }
+      setItemTitle(itemId);
+      notesText.value = data.notes || '';
+      sensorsCountInput.value = data.sensorsCount || 0;
+      reqEpoxy.checked = !!data.reqEpoxy;
+      reqNonEpoxy.checked = !!data.reqNonEpoxy;
+      reqFin.checked = !!data.reqFin;
+      currentPhotoIndex = data.selectedPhotoIndex ?? -1;
+      renderThumbnails(data);
+      showLargePhoto(data);
+    }
+
+    function setItemTitle(itemId) {
+      const parts = itemId.split('-');
+      if (parts.length >= 3) {
+        const brand = parts[1][0].toUpperCase() + parts[1].slice(1);
+        const model = parts[2];
+        itemTitle.textContent = brand + ' - ' + model;
+      } else {
+        itemTitle.textContent = itemId;
+      }
+    }
+
+    function renderThumbnails(itemData) {
+      thumbnailsDiv.innerHTML = '';
+      itemData.images.forEach((imgObj, index) => {
+        const thumb = document.createElement('img');
+        thumb.className = 'thumbnail';
+        thumb.src = imgObj.src;
+        thumb.addEventListener('click', async () => {
+          itemData.selectedPhotoIndex = index;
+          await saveItemData(itemData);
+          currentPhotoIndex = index;
+          showLargePhoto(itemData);
+        });
+        thumbnailsDiv.appendChild(thumb);
+      });
+    }
+
+    function showLargePhoto(itemData) {
+      const dotElements = document.querySelectorAll('.dot');
+      dotElements.forEach(d => d.remove());
+
+      if (itemData.selectedPhotoIndex < 0 || !itemData.images[itemData.selectedPhotoIndex]) {
+        largePhoto.src = '';
+        return;
+      }
+      const photo = itemData.images[itemData.selectedPhotoIndex];
+      largePhoto.src = photo.src;
+      photo.dots.forEach(dotData => {
+        createDotElement(dotData.x, dotData.y);
+      });
+    }
+
+    largePhoto.addEventListener('click', async (e) => {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      if (data.selectedPhotoIndex < 0) return;
+      const rect = largePhoto.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      createDotElement(offsetX + 'px', offsetY + 'px');
+      data.images[data.selectedPhotoIndex].dots.push({ x: offsetX + 'px', y: offsetY + 'px' });
+      await saveItemData(data);
+    });
+
+    function createDotElement(left, top) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.left = left;
+      dot.style.top = top;
+      dot.addEventListener('mousedown', onDotMouseDown);
+      document.getElementById('photoArea').appendChild(dot);
+    }
+
+    async function onDotMouseDown(e) {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+
+      const dot = e.target;
+      let startX = e.clientX;
+      let startY = e.clientY;
+      let initLeft = parseFloat(dot.style.left);
+      let initTop = parseFloat(dot.style.top);
+
+      function onMouseMove(evt) {
+        evt.preventDefault();
+        const dx = evt.clientX - startX;
+        const dy = evt.clientY - startY;
+        dot.style.left = (initLeft + dx) + 'px';
+        dot.style.top = (initTop + dy) + 'px';
+      }
+      async function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        await updateDotPositions();
+      }
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    async function updateDotPositions() {
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      const photo = data.images[data.selectedPhotoIndex];
+      if (!photo) return;
+      const dotEls = document.querySelectorAll('.dot');
+      const newDots = Array.from(dotEls).map(d => {
+        return {
+          x: d.style.left,
+          y: d.style.top
+        };
+      });
+      photo.dots = newDots;
+      await saveItemData(data);
+    }
+
+    clearDotsBtn.addEventListener('click', async () => {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      if (data.selectedPhotoIndex < 0) return;
+      data.images[data.selectedPhotoIndex].dots = [];
+      await saveItemData(data);
+      showLargePhoto(data);
+    });
+
+    deletePhotoBtn.addEventListener('click', async () => {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      const idx = data.selectedPhotoIndex;
+      if (idx < 0 || !data.images[idx]) return;
+      data.images.splice(idx, 1);
+      data.selectedPhotoIndex = -1;
+      await saveItemData(data);
+      loadItem(currentItem);
+    });
+
+    editSensorsBtn.addEventListener('click', async () => {
+      sensorsCountInput.disabled = !sensorsCountInput.disabled;
+      if (!sensorsCountInput.disabled) {
+        editSensorsBtn.textContent = 'Lock';
+      } else {
+        editSensorsBtn.textContent = 'Edit';
+        await saveChanges();
+      }
+    });
+
+    saveBtn.addEventListener('click', saveChanges);
+    async function saveChanges() {
+      if (!currentItem) return;
+      let data = await getItemData(currentItem);
+      if (!data) {
+        data = createNewItem(currentItem);
+      }
+      data.notes = notesText.value;
+      data.sensorsCount = parseInt(sensorsCountInput.value) || 0;
+      data.reqEpoxy = reqEpoxy.checked;
+      data.reqNonEpoxy = reqNonEpoxy.checked;
+      data.reqFin = reqFin.checked;
+      await saveItemData(data);
+    }
+  </script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #F4F6F8;
+      color: #1f2937;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      display: flex;
+      height: 100%;
+    }
+    /* Sidebar */
+    #sidebar {
+      width: 250px;
+      background-color: #1F1F1F;
+      color: white;
+      padding: 10px;
+      overflow-y: auto;
+    }
+    #sidebar input {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 4px;
+    }
+    #equipment-list {
+      list-style: none;
+    }
+    #equipment-list li {
+      position: relative;
+      padding: 5px 0;
+    }
+    #equipment-list li[data-id]:hover {
+      background-color: #2F2F2F;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .title:hover {
+      background-color: #2F2F2F;
+      border-radius: 4px;
+      padding: 0 2px;
+      cursor: pointer;
+    }
+    .arrow {
+      display: inline-block;
+      width: 20px;
+      user-select: none;
+      margin-right: 5px;
+      color: #00c266;
+      cursor: pointer;
+    }
+    .expandable > ul {
+      padding-left: 1.5em;
+      display: none;
+    }
+    .expandable > ul.active {
+      display: block;
+    }
+    /* Main */
+    #content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background-color: #fff;
+    }
+    #item-title {
+      margin-bottom: 10px;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .photo-controls {
+      margin-bottom: 10px;
+    }
+    #dropZone {
+      width: 100%;
+      max-width: 600px;
+      min-height: 60px;
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      margin-bottom: 20px;
+      color: #666;
+      font-size: 14px;
+      padding: 10px;
+    }
+    #dropZone.dragover {
+      border-color: #00c266;
+      background-color: #eef;
+      color: #00a84f;
+    }
+    #thumbnails {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .thumbnail {
+      width: 100px;
+      height: 70px;
+      object-fit: cover;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #photoArea {
+      position: relative;
+      max-width: 600px;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+    }
+    #largePhoto {
+      width: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      background: #00c266;
+      border-radius: 50%;
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+    .info {
+      margin-top: 20px;
+    }
+    #sensor-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    #sensorsCount {
+      width: 80px;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      resize: vertical;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #00c266;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    button:hover {
+      background-color: #00a84f;
+    }
+  </style>
 </body>
 </html>
