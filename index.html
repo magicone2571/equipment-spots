@@ -2,370 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Equipment Demo - Firebase</title>
+  <title>Equipment Demo (IndexedDB Version)</title>
   <!--
-    This version removes all IndexedDB logic and replaces it with Firestore.
-    So multiple users will share the same data.
+    Reverting to the working IndexedDB approach.
+    This code does NOT share data across users, but works fully offline.
   -->
-  <script type="module">
-    // Import needed Firebase SDK modules (App, Analytics, Firestore)
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-analytics.js";
-    import {
-      getFirestore,
-      doc,
-      getDoc,
-      setDoc,
-      updateDoc
-    } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
-
-    // Your Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyA1AaWEHFLze4SfwpBXxtmuAZFe8c6I0nI",
-      authDomain: "equipment-demo.firebaseapp.com",
-      projectId: "equipment-demo",
-      storageBucket: "equipment-demo.firebasestorage.app",
-      messagingSenderId: "392792074903",
-      appId: "1:392792074903:web:9c73d5ea529a042eb417d2",
-      measurementId: "G-5DVXZKJLRJ"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    const db = getFirestore(app);
-
-    // Data structure in Firestore:
-    // Collection: "equipmentItems" (e.g. doc ID = "motors-baldor-m3708t")
-    // {
-    //   itemId: string,
-    //   notes: string,
-    //   sensorsCount: number,
-    //   reqEpoxy: boolean,
-    //   reqNonEpoxy: boolean,
-    //   reqFin: boolean,
-    //   images: [
-    //     { src: string (DataURL), dots: [ {x, y}, ... ] },
-    //     ...
-    //   ],
-    //   selectedPhotoIndex: number
-    // }
-
-    let currentItem = "";
-    let currentPhotoIndex = -1;
-
-    // Grab DOM elements
-    const itemTitle = document.getElementById('item-title');
-    const photoInput = document.getElementById('photoInput');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const dropZone = document.getElementById('dropZone');
-    const thumbnailsDiv = document.getElementById('thumbnails');
-    const largePhoto = document.getElementById('largePhoto');
-    const clearDotsBtn = document.getElementById('clearDotsBtn');
-    const deletePhotoBtn = document.getElementById('deletePhotoBtn');
-
-    const notesText = document.getElementById('notes');
-    const sensorsCountInput = document.getElementById('sensorsCount');
-    const editSensorsBtn = document.getElementById('editSensorsBtn');
-    const reqEpoxy = document.getElementById('reqEpoxy');
-    const reqNonEpoxy = document.getElementById('reqNonEpoxy');
-    const reqFin = document.getElementById('reqFin');
-    const saveBtn = document.getElementById('saveBtn');
-
-    // Collapsible menu logic
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('arrow')) {
-        const parentLi = e.target.closest('li');
-        const nestedUl = parentLi.querySelector('ul.nested');
-        if (nestedUl) {
-          nestedUl.classList.toggle('active');
-          e.target.textContent = (e.target.textContent === '▶') ? '▼' : '▶';
-        }
-      } else if (e.target.dataset.id) {
-        currentItem = e.target.dataset.id;
-        loadItem(currentItem);
-      }
-    });
-
-    // Firestore get
-    async function getItemData(itemId) {
-      const ref = doc(db, "equipmentItems", itemId);
-      const snapshot = await getDoc(ref);
-      if (snapshot.exists()) {
-        return snapshot.data();
-      } else {
-        return null;
-      }
-    }
-
-    // Firestore save (create or overwrite)
-    async function saveItemData(itemObj) {
-      const ref = doc(db, "equipmentItems", itemObj.itemId);
-      await setDoc(ref, itemObj);
-    }
-
-    // Each time user selects an item, load from Firestore
-    async function loadItem(itemId) {
-      const data = await getItemData(itemId);
-      if (!data) {
-        // If doc doesn't exist, create new doc
-        const fresh = createNewItem(itemId);
-        await saveItemData(fresh);
-        return loadItem(itemId); // reload
-      }
-
-      // Populate UI
-      setItemTitle(itemId);
-      notesText.value = data.notes || '';
-      sensorsCountInput.value = data.sensorsCount || 0;
-      reqEpoxy.checked = !!data.reqEpoxy;
-      reqNonEpoxy.checked = !!data.reqNonEpoxy;
-      reqFin.checked = !!data.reqFin;
-
-      currentPhotoIndex = data.selectedPhotoIndex ?? -1;
-      renderThumbnails(data);
-      showLargePhoto(data);
-    }
-
-    function createNewItem(itemId) {
-      return {
-        itemId,
-        notes: '',
-        sensorsCount: 0,
-        reqEpoxy: false,
-        reqNonEpoxy: false,
-        reqFin: false,
-        images: [],
-        selectedPhotoIndex: -1
-      };
-    }
-
-    function setItemTitle(itemId) {
-      const parts = itemId.split('-');
-      if (parts.length >= 3) {
-        const brand = parts[1][0].toUpperCase() + parts[1].slice(1);
-        const model = parts[2];
-        itemTitle.textContent = brand + ' - ' + model;
-      } else {
-        itemTitle.textContent = itemId;
-      }
-    }
-
-    // Handle file input
-    photoInput.addEventListener('change', async (e) => {
-      if (!currentItem) {
-        alert('Select an item first!');
-        photoInput.value = null;
-        return;
-      }
-      const files = e.target.files;
-      if (!files || files.length === 0) {
-        uploadStatus.textContent = 'No files selected.';
-        return;
-      }
-      uploadStatus.textContent = `Processing ${files.length} file(s)...`;
-      await handlePhotos(files);
-      photoInput.value = null;
-    });
-
-    // Drag & drop
-    dropZone.addEventListener('dragenter', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-    });
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      if (!currentItem) {
-        alert('Select an item first!');
-        return;
-      }
-      const dtFiles = e.dataTransfer.files;
-      if (dtFiles && dtFiles.length > 0) {
-        handlePhotos(dtFiles);
-      }
-    });
-
-    async function handlePhotos(fileList) {
-      const data = await getItemData(currentItem);
-      if (!data) return; // if user didn't pick item
-
-      let addedCount = 0;
-      for (let i = 0; i < fileList.length; i++) {
-        const file = fileList[i];
-        const dataUrl = await fileToDataUrl(file);
-        data.images.push({ src: dataUrl, dots: [] });
-        addedCount++;
-      }
-      data.selectedPhotoIndex = data.images.length - 1; // show last added?
-      await saveItemData(data);
-      uploadStatus.textContent = `Uploaded ${addedCount} photo(s).`;
-      loadItem(currentItem);
-    }
-
-    function fileToDataUrl(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function renderThumbnails(itemData) {
-      thumbnailsDiv.innerHTML = '';
-      itemData.images.forEach((imgObj, index) => {
-        const thumb = document.createElement('img');
-        thumb.className = 'thumbnail';
-        thumb.src = imgObj.src;
-        thumb.addEventListener('click', async () => {
-          itemData.selectedPhotoIndex = index;
-          await saveItemData(itemData);
-          currentPhotoIndex = index;
-          showLargePhoto(itemData);
-        });
-        thumbnailsDiv.appendChild(thumb);
-      });
-    }
-
-    function showLargePhoto(itemData) {
-      // Remove old dots
-      document.querySelectorAll('.dot').forEach(d => d.remove());
-      if (itemData.selectedPhotoIndex < 0 || !itemData.images[itemData.selectedPhotoIndex]) {
-        largePhoto.src = '';
-        return;
-      }
-      const photo = itemData.images[itemData.selectedPhotoIndex];
-      largePhoto.src = photo.src;
-      photo.dots.forEach(dotData => {
-        createDotElement(dotData.x, dotData.y);
-      });
-    }
-
-    // Clicking large photo => add dot
-    largePhoto.addEventListener('click', async (e) => {
-      if (!currentItem) return;
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      if (data.selectedPhotoIndex < 0) return;
-
-      const rect = largePhoto.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
-      createDotElement(offsetX + 'px', offsetY + 'px');
-
-      data.images[data.selectedPhotoIndex].dots.push({ x: offsetX + 'px', y: offsetY + 'px' });
-      await saveItemData(data);
-    });
-
-    function createDotElement(left, top) {
-      const dot = document.createElement('div');
-      dot.className = 'dot';
-      dot.style.left = left;
-      dot.style.top = top;
-      dot.addEventListener('mousedown', onDotMouseDown);
-      document.getElementById('photoArea').appendChild(dot);
-    }
-
-    async function onDotMouseDown(e) {
-      if (!currentItem) return;
-      const dot = e.target;
-      let startX = e.clientX;
-      let startY = e.clientY;
-      let initLeft = parseFloat(dot.style.left);
-      let initTop = parseFloat(dot.style.top);
-
-      function onMouseMove(evt) {
-        evt.preventDefault();
-        const dx = evt.clientX - startX;
-        const dy = evt.clientY - startY;
-        dot.style.left = (initLeft + dx) + 'px';
-        dot.style.top = (initTop + dy) + 'px';
-      }
-      async function onMouseUp() {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        await updateDotPositions();
-      }
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    }
-
-    async function updateDotPositions() {
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      const photo = data.images[data.selectedPhotoIndex];
-      if (!photo) return;
-
-      const dotEls = document.querySelectorAll('.dot');
-      const newDots = Array.from(dotEls).map(d => ({
-        x: d.style.left,
-        y: d.style.top
-      }));
-      photo.dots = newDots;
-      await saveItemData(data);
-    }
-
-    clearDotsBtn.addEventListener('click', async () => {
-      if (!currentItem) return;
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      if (data.selectedPhotoIndex < 0) return;
-
-      data.images[data.selectedPhotoIndex].dots = [];
-      await saveItemData(data);
-      showLargePhoto(data);
-    });
-
-    deletePhotoBtn.addEventListener('click', async () => {
-      if (!currentItem) return;
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      const idx = data.selectedPhotoIndex;
-      if (idx < 0 || !data.images[idx]) return;
-
-      data.images.splice(idx, 1);
-      data.selectedPhotoIndex = -1;
-      await saveItemData(data);
-      loadItem(currentItem);
-    });
-
-    editSensorsBtn.addEventListener('click', async () => {
-      sensorsCountInput.disabled = !sensorsCountInput.disabled;
-      if (!sensorsCountInput.disabled) {
-        editSensorsBtn.textContent = 'Lock';
-      } else {
-        editSensorsBtn.textContent = 'Edit';
-        await saveChanges();
-      }
-    });
-
-    saveBtn.addEventListener('click', saveChanges);
-    async function saveChanges() {
-      if (!currentItem) return;
-      const data = await getItemData(currentItem);
-      if (!data) return;
-
-      data.notes = notesText.value;
-      data.sensorsCount = parseInt(sensorsCountInput.value) || 0;
-      data.reqEpoxy = reqEpoxy.checked;
-      data.reqNonEpoxy = reqNonEpoxy.checked;
-      data.reqFin = reqFin.checked;
-
-      await saveItemData(data);
-    }
-  </script>
 </head>
 <body>
   <div id="app">
     <aside id="sidebar">
-      <input type="text" id="search" placeholder="Search equipment..." />
+      <input type="text" id="search" placeholder="Search equipment...">
       <ul id="equipment-list">
         <!-- Motors -->
         <li class="expandable">
@@ -450,8 +96,8 @@
       <div id="thumbnails"></div>
 
       <!-- Large photo area with dots in the same pane -->
-      <div id="photoArea" style="position: relative;">
-        <img id="largePhoto" />
+      <div id="photoArea" style="position: relative; max-width: 600px; border: 1px solid #ccc; margin-bottom: 20px;">
+        <img id="largePhoto" style="width: 100%; display: block; cursor: crosshair;">
         <button id="clearDotsBtn">Clear Dots</button>
         <button id="deletePhotoBtn">Delete Photo</button>
       </div>
@@ -461,20 +107,363 @@
         <textarea id="notes" placeholder="Enter notes here..."></textarea>
 
         <h3>Number of Sensors Required</h3>
-        <div id="sensor-container">
-          <input type="number" id="sensorsCount" disabled value="0" min="0"/>
+        <div id="sensor-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <input type="number" id="sensorsCount" disabled value="0" min="0">
           <button id="editSensorsBtn">Edit</button>
         </div>
 
         <h3>Requirements</h3>
-        <label><input type="checkbox" id="reqEpoxy" /> Epoxy Mounts</label><br />
-        <label><input type="checkbox" id="reqNonEpoxy" /> Non-Epoxy Mounts</label><br />
-        <label><input type="checkbox" id="reqFin" /> Fin Mounts</label><br />
+        <label><input type="checkbox" id="reqEpoxy"> Epoxy Mounts</label><br>
+        <label><input type="checkbox" id="reqNonEpoxy"> Non-Epoxy Mounts</label><br>
+        <label><input type="checkbox" id="reqFin"> Fin Mounts</label><br>
 
         <button id="saveBtn">Save</button>
       </section>
     </main>
   </div>
+
+  <script>
+    /***************************************
+      IndexedDB Approach
+      DB name: equipmentDB
+      Store: items (key: itemId)
+
+      item object:
+      {
+        itemId,
+        notes,
+        sensorsCount,
+        reqEpoxy,
+        reqNonEpoxy,
+        reqFin,
+        images: [ { src, dots: [ {x, y}, ... ] }, ... ],
+        selectedPhotoIndex
+      }
+    ***************************************/
+
+    let db = null;
+    let currentItem = "";
+    let currentPhotoIndex = -1;
+
+    const itemTitle = document.getElementById('item-title');
+    const photoInput = document.getElementById('photoInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const dropZone = document.getElementById('dropZone');
+    const thumbnailsDiv = document.getElementById('thumbnails');
+    const largePhoto = document.getElementById('largePhoto');
+    const clearDotsBtn = document.getElementById('clearDotsBtn');
+    const deletePhotoBtn = document.getElementById('deletePhotoBtn');
+
+    const notesText = document.getElementById('notes');
+    const sensorsCountInput = document.getElementById('sensorsCount');
+    const editSensorsBtn = document.getElementById('editSensorsBtn');
+    const reqEpoxy = document.getElementById('reqEpoxy');
+    const reqNonEpoxy = document.getElementById('reqNonEpoxy');
+    const reqFin = document.getElementById('reqFin');
+    const saveBtn = document.getElementById('saveBtn');
+
+    // Open or create IndexedDB
+    const request = indexedDB.open('equipmentDB', 1);
+    request.onupgradeneeded = function(e) {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains('items')) {
+        db.createObjectStore('items', { keyPath: 'itemId' });
+      }
+    };
+    request.onsuccess = function(e) {
+      db = e.target.result;
+      console.log('IndexedDB opened successfully');
+    };
+    request.onerror = function(e) {
+      console.error('Error opening IndexedDB', e);
+      alert('IndexedDB not supported or error opening DB.');
+    };
+
+    // Collapsible menu
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('arrow')) {
+        const parentLi = e.target.closest('li');
+        const nestedUl = parentLi.querySelector('ul.nested');
+        if (nestedUl) {
+          nestedUl.classList.toggle('active');
+          e.target.textContent = (e.target.textContent === '▶') ? '▼' : '▶';
+        }
+      } else if (e.target.dataset.id) {
+        currentItem = e.target.dataset.id;
+        loadItem(currentItem);
+      }
+    });
+
+    function getItemData(itemId) {
+      return new Promise((resolve, reject) => {
+        if (!db) return resolve(null);
+        const tx = db.transaction('items', 'readonly');
+        const store = tx.objectStore('items');
+        const getReq = store.get(itemId);
+        getReq.onsuccess = () => {
+          resolve(getReq.result || null);
+        };
+        getReq.onerror = () => reject(getReq.error);
+      });
+    }
+
+    function saveItemData(itemObj) {
+      return new Promise((resolve, reject) => {
+        if (!db) return reject('No DB');
+        const tx = db.transaction('items', 'readwrite');
+        const store = tx.objectStore('items');
+        const putReq = store.put(itemObj);
+        putReq.onsuccess = () => {
+          resolve(true);
+        };
+        putReq.onerror = () => reject(putReq.error);
+      });
+    }
+
+    function createNewItem(itemId) {
+      return {
+        itemId,
+        notes: '',
+        sensorsCount: 0,
+        reqEpoxy: false,
+        reqNonEpoxy: false,
+        reqFin: false,
+        images: [],
+        selectedPhotoIndex: -1
+      };
+    }
+
+    async function loadItem(itemId) {
+      const data = await getItemData(itemId);
+      if (!data) {
+        // create new
+        const newObj = createNewItem(itemId);
+        await saveItemData(newObj);
+        return loadItem(itemId);
+      }
+      setItemTitle(itemId);
+      notesText.value = data.notes || '';
+      sensorsCountInput.value = data.sensorsCount || 0;
+      reqEpoxy.checked = !!data.reqEpoxy;
+      reqNonEpoxy.checked = !!data.reqNonEpoxy;
+      reqFin.checked = !!data.reqFin;
+      currentPhotoIndex = data.selectedPhotoIndex ?? -1;
+      renderThumbnails(data);
+      showLargePhoto(data);
+    }
+
+    function setItemTitle(itemId) {
+      const parts = itemId.split('-');
+      if (parts.length >= 3) {
+        const brand = parts[1][0].toUpperCase() + parts[1].slice(1);
+        const model = parts[2];
+        itemTitle.textContent = brand + ' - ' + model;
+      } else {
+        itemTitle.textContent = itemId;
+      }
+    }
+
+    // File input
+    photoInput.addEventListener('change', async (e) => {
+      if (!currentItem) {
+        alert('Select an item first!');
+        photoInput.value = null;
+        return;
+      }
+      const files = e.target.files;
+      if (!files || files.length === 0) {
+        uploadStatus.textContent = 'No files selected.';
+        return;
+      }
+      uploadStatus.textContent = `Processing ${files.length} file(s)...`;
+      await handlePhotos(files);
+      photoInput.value = null;
+    });
+
+    // Drag & drop
+    dropZone.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (!currentItem) {
+        alert('Select an item first!');
+        return;
+      }
+      const dtFiles = e.dataTransfer.files;
+      if (dtFiles && dtFiles.length > 0) {
+        await handlePhotos(dtFiles);
+      }
+    });
+
+    async function handlePhotos(fileList) {
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      let addedCount = 0;
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const dataUrl = await fileToDataUrl(file);
+        data.images.push({ src: dataUrl, dots: [] });
+        addedCount++;
+      }
+      data.selectedPhotoIndex = data.images.length - 1;
+      await saveItemData(data);
+      uploadStatus.textContent = `Uploaded ${addedCount} photo(s).`;
+      loadItem(currentItem);
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderThumbnails(itemData) {
+      thumbnailsDiv.innerHTML = '';
+      itemData.images.forEach((imgObj, index) => {
+        const thumb = document.createElement('img');
+        thumb.className = 'thumbnail';
+        thumb.src = imgObj.src;
+        thumb.addEventListener('click', async () => {
+          itemData.selectedPhotoIndex = index;
+          await saveItemData(itemData);
+          currentPhotoIndex = index;
+          showLargePhoto(itemData);
+        });
+        thumbnailsDiv.appendChild(thumb);
+      });
+    }
+
+    function showLargePhoto(itemData) {
+      document.querySelectorAll('.dot').forEach(d => d.remove());
+      if (itemData.selectedPhotoIndex < 0 || !itemData.images[itemData.selectedPhotoIndex]) {
+        largePhoto.src = '';
+        return;
+      }
+      const photo = itemData.images[itemData.selectedPhotoIndex];
+      largePhoto.src = photo.src;
+      photo.dots.forEach(dotData => {
+        createDotElement(dotData.x, dotData.y);
+      });
+    }
+
+    largePhoto.addEventListener('click', async (e) => {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      if (data.selectedPhotoIndex < 0) return;
+      const rect = largePhoto.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      createDotElement(offsetX + 'px', offsetY + 'px');
+      data.images[data.selectedPhotoIndex].dots.push({ x: offsetX + 'px', y: offsetY + 'px' });
+      await saveItemData(data);
+    });
+
+    function createDotElement(left, top) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.left = left;
+      dot.style.top = top;
+      dot.addEventListener('mousedown', onDotMouseDown);
+      document.getElementById('photoArea').appendChild(dot);
+    }
+
+    async function onDotMouseDown(e) {
+      if (!currentItem) return;
+      const dot = e.target;
+      let startX = e.clientX;
+      let startY = e.clientY;
+      let initLeft = parseFloat(dot.style.left);
+      let initTop = parseFloat(dot.style.top);
+
+      function onMouseMove(evt) {
+        evt.preventDefault();
+        const dx = evt.clientX - startX;
+        const dy = evt.clientY - startY;
+        dot.style.left = (initLeft + dx) + 'px';
+        dot.style.top = (initTop + dy) + 'px';
+      }
+
+      async function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        await updateDotPositions();
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    async function updateDotPositions() {
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      const photo = data.images[data.selectedPhotoIndex];
+      if (!photo) return;
+      const dotEls = document.querySelectorAll('.dot');
+      const newDots = Array.from(dotEls).map(d => ({ x: d.style.left, y: d.style.top }));
+      photo.dots = newDots;
+      await saveItemData(data);
+    }
+
+    clearDotsBtn.addEventListener('click', async () => {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      if (data.selectedPhotoIndex < 0) return;
+      data.images[data.selectedPhotoIndex].dots = [];
+      await saveItemData(data);
+      showLargePhoto(data);
+    });
+
+    deletePhotoBtn.addEventListener('click', async () => {
+      if (!currentItem) return;
+      const data = await getItemData(currentItem);
+      if (!data) return;
+      const idx = data.selectedPhotoIndex;
+      if (idx < 0 || !data.images[idx]) return;
+      data.images.splice(idx, 1);
+      data.selectedPhotoIndex = -1;
+      await saveItemData(data);
+      loadItem(currentItem);
+    });
+
+    editSensorsBtn.addEventListener('click', async () => {
+      sensorsCountInput.disabled = !sensorsCountInput.disabled;
+      if (!sensorsCountInput.disabled) {
+        editSensorsBtn.textContent = 'Lock';
+      } else {
+        editSensorsBtn.textContent = 'Edit';
+        await saveChanges();
+      }
+    });
+
+    saveBtn.addEventListener('click', saveChanges);
+
+    async function saveChanges() {
+      if (!currentItem) return;
+      let data = await getItemData(currentItem);
+      if (!data) return;
+      data.notes = notesText.value;
+      data.sensorsCount = parseInt(sensorsCountInput.value) || 0;
+      data.reqEpoxy = reqEpoxy.checked;
+      data.reqNonEpoxy = reqNonEpoxy.checked;
+      data.reqFin = reqFin.checked;
+      await saveItemData(data);
+    }
+
+  </script>
 
   <style>
     * {
@@ -493,7 +482,6 @@
       display: flex;
       height: 100%;
     }
-    /* Sidebar */
     #sidebar {
       width: 250px;
       background-color: #1F1F1F;
@@ -541,7 +529,7 @@
     .expandable > ul.active {
       display: block;
     }
-    /* Main */
+
     #content {
       flex: 1;
       padding: 20px;
@@ -648,4 +636,5 @@
       background-color: #00a84f;
     }
   </style>
+</body>
 </html>
