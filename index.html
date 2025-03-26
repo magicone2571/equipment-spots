@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Equipment Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="container">
+    <div id="sidebar">
+      <input type="text" id="search" placeholder="Search...">
+      <ul id="equipment-list">
+        <li>
+          Motors
+          <ul>
+            <li>
+              Baldwin
+              <ul>
+                <li onclick="selectItem('Motors > Baldwin > 1345')">1345</li>
+              </ul>
+            </li>
+            <li>
+              Eaton
+              <ul>
+                <li onclick="selectItem('Motors > Eaton > 5463')">5463</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li>
+          Fans
+          <ul>
+            <li onclick="selectItem('Fans > Basic')">Basic</li>
+          </ul>
+        </li>
+        <li>
+          Gearboxes
+          <ul>
+            <li onclick="selectItem('Gearboxes > Example')">Example</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+    <div id="content">
+      <input type="file" id="imageUpload" accept="image/*">
+      <div id="image-wrapper">
+        <img id="mainImage" onclick="addDot(event)">
+      </div>
+      <h3>Notes</h3>
+      <textarea id="notes" placeholder="Enter notes here..."></textarea>
+      <h3>Requirements</h3>
+      <label><input type="checkbox" id="req1"> Requirement 1</label><br>
+      <label><input type="checkbox" id="req2"> Requirement 2</label><br>
+      <button onclick="saveData()">Save</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
