@@ -2,113 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Equipment Demo (IndexedDB Version)</title>
-  <!--
-    Reverting to the working IndexedDB approach.
-    This code does NOT share data across users, but works fully offline.
-  -->
+  <title>Equipment Demo (IndexedDB) - Refined Menu Layout</title>
 </head>
 <body>
-  <div id="app">
-    <aside id="sidebar">
-      <input type="text" id="search" placeholder="Search equipment...">
-      <ul id="equipment-list">
-        <!-- Motors -->
-        <li class="expandable">
-          <span class="arrow">▶</span>
-          <span class="title">Motors</span>
-          <ul class="nested">
-            <li class="expandable">
-              <span class="arrow">▶</span>
-              <span class="title">Baldor</span>
-              <ul class="nested">
-                <li data-id="motors-baldor-m3708t">M3708T</li>
-                <li data-id="motors-baldor-l3509t">L3509T</li>
-              </ul>
-            </li>
-            <li class="expandable">
-              <span class="arrow">▶</span>
-              <span class="title">Marathon</span>
-              <ul class="nested">
-                <li data-id="motors-marathon-x12345">X12345</li>
-                <li data-id="motors-marathon-w98432">W98432</li>
-              </ul>
-            </li>
-            <li class="expandable">
-              <span class="arrow">▶</span>
-              <span class="title">WEG</span>
-              <ul class="nested">
-                <li data-id="motors-weg-e3432">E3432</li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-        <!-- Fans -->
-        <li class="expandable">
-          <span class="arrow">▶</span>
-          <span class="title">Fans</span>
-          <ul class="nested">
-            <li class="expandable">
-              <span class="arrow">▶</span>
-              <span class="title">Greenheck</span>
-              <ul class="nested">
-                <li data-id="fans-greenheck-gseries">GSeries</li>
-                <li data-id="fans-greenheck-s310">S310</li>
-              </ul>
-            </li>
-            <li class="expandable">
-              <span class="arrow">▶</span>
-              <span class="title">AirMaster</span>
-              <ul class="nested">
-                <li data-id="fans-airmaster-x500">X500</li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-        <!-- Gearboxes -->
-        <li class="expandable">
-          <span class="arrow">▶</span>
-          <span class="title">Gearboxes</span>
-          <ul class="nested">
-            <li class="expandable">
-              <span class="arrow">▶</span>
-              <span class="title">SEW-EURODRIVE</span>
-              <ul class="nested">
-                <li data-id="gearboxes-sew_eurodrive-r37">R37</li>
-                <li data-id="gearboxes-sew_eurodrive-k50">K50</li>
-              </ul>
-            </li>
-          </ul>
-        </li>
+  <!-- HOME SCREEN -->
+  <div id="homeScreen" style="padding: 20px;">
+    <h1>Welcome to Equipment Demo</h1>
+    <p>
+      This application lets you manage industrial equipment, upload photos, add dots, notes, and requirements —
+      all stored locally in your browser (IndexedDB). No data is shared with others.
+    </p>
+    <ol>
+      <li>Select or create equipment items in the main app.</li>
+      <li>Upload photos by clicking "Add Photos" or dragging & dropping.</li>
+      <li>Click the large photo to add dots and drag them around.</li>
+      <li>Add notes, sensor count, and check relevant requirements.</li>
+    </ol>
+    <button id="goToAppBtn" style="margin-top: 20px; padding: 10px;">Go to Main App</button>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" style="display: none; height: 100vh;">
+    <!-- Manage Equipment Modal -->
+    <div id="manageModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height:100%; background: rgba(0,0,0,0.4);">
+      <div style="background:#fff; padding:20px; margin: 50px auto; max-width:600px; position:relative;">
+        <h2>Manage Equipment</h2>
+        <p>Add, edit, or delete equipment items in the list. Updates will appear in the menu automatically.</p>
+        <!-- UI for new item -->
+        <div style="margin-bottom: 10px; display:flex; gap:10px; flex-wrap:wrap;">
+          <div>
+            <label>Category:</label>
+            <select id="newCategory" style="min-width:80px;"></select>
+            <button id="addCategoryBtn">+Add Cat</button>
+          </div>
+          <div>
+            <label>Brand:</label>
+            <select id="newBrand" style="min-width:80px;"></select>
+            <button id="addBrandBtn">+Add Brand</button>
+          </div>
+          <div>
+            <label>Model:</label>
+            <input type="text" id="newModel" placeholder="e.g. X12345" style="width:80px;">
+            <button id="addItemBtn">Add Item</button>
+          </div>
+        </div>
+
+        <p>Existing Items:</p>
+        <ul id="allItemsList" style="max-height:200px; overflow-y:auto; border:1px solid #ccc; padding: 5px;"></ul>
+
+        <button id="closeManageBtn" style="position:absolute; top:10px; right:10px;">Close</button>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" style="width:250px; background-color:#1F1F1F; color:white; padding:10px; overflow-y:auto; text-align:center;">
+      <button id="homeBtn" style="margin-bottom:10px; width:100%;">Home</button>
+      <button id="manageEquipBtn" style="margin-bottom:10px; width:100%;">Manage Equipment</button>
+      <input type="text" id="search" placeholder="Search equipment..." style="display:block; width:90%; margin:0 auto 10px auto; border-radius:4px; border:none; padding:6px;">
+      <!-- Dynamic UL for equipment -->
+      <ul id="equipment-list" style="list-style:none; padding-left:1rem; text-align:left;">
+        <!-- Items auto-generated from DB -->
       </ul>
     </aside>
-    <main id="content">
+
+    <!-- MAIN CONTENT -->
+    <main id="content" style="flex:1; padding:20px; overflow-y:auto; background-color:#fff;">
       <h2 id="item-title">Select an equipment item...</h2>
 
       <!-- Photo upload -->
-      <div class="photo-controls">
+      <div class="photo-controls" style="margin-bottom:10px;">
         <label for="photoInput">Add Photos:</label>
         <input type="file" id="photoInput" multiple accept="image/*">
         <p id="uploadStatus" style="margin:5px 0; color:green;"></p>
       </div>
-      <div id="dropZone">Drag & Drop Photos Here</div>
+      <div id="dropZone" style="width:100%; max-width:600px; min-height:60px; border:2px dashed #ccc; border-radius:6px; display:flex; align-items:center; justify-content:center; text-align:center; margin-bottom:20px; color:#666; font-size:14px; padding:10px;">Drag &amp; Drop Photos Here</div>
 
-      <div id="thumbnails"></div>
+      <div id="thumbnails" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px;"></div>
 
-      <!-- Large photo area with dots in the same pane -->
-      <div id="photoArea" style="position: relative; max-width: 600px; border: 1px solid #ccc; margin-bottom: 20px;">
-        <img id="largePhoto" style="width: 100%; display: block; cursor: crosshair;">
+      <!-- Large photo area with dots -->
+      <div id="photoArea" style="position:relative; max-width:600px; border:1px solid #ccc; margin-bottom:20px;">
+        <img id="largePhoto" style="max-width:100%; height:auto; display:block; cursor:crosshair;">
         <button id="clearDotsBtn">Clear Dots</button>
         <button id="deletePhotoBtn">Delete Photo</button>
       </div>
 
       <section class="info">
         <h3>Notes</h3>
-        <textarea id="notes" placeholder="Enter notes here..."></textarea>
+        <textarea id="notes" placeholder="Enter notes here..." style="width:100%; height:100px; resize:vertical; padding:10px; border-radius:4px; border:1px solid #ccc; margin-bottom:10px;"></textarea>
 
         <h3>Number of Sensors Required</h3>
-        <div id="sensor-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <input type="number" id="sensorsCount" disabled value="0" min="0">
+        <div id="sensor-container" style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <input type="number" id="sensorsCount" disabled value="0" min="0" style="width:80px; padding:5px; border:1px solid #ccc; border-radius:4px;">
           <button id="editSensorsBtn">Edit</button>
         </div>
 
@@ -123,27 +107,345 @@
   </div>
 
   <script>
-    /***************************************
-      IndexedDB Approach
-      DB name: equipmentDB
-      Store: items (key: itemId)
+    ///////////////////////////////////////////////////////////
+    // ARRAYS FOR CATEGORY AND BRAND DROPDOWNS
+    ///////////////////////////////////////////////////////////
+    let categories = ["Motors","Fans","Gearboxes"];
+    let brands = ["Baldor","Marathon","WEG","Greenheck","AirMaster","SEW-EURODRIVE"];
 
-      item object:
-      {
-        itemId,
-        notes,
-        sensorsCount,
-        reqEpoxy,
-        reqNonEpoxy,
-        reqFin,
-        images: [ { src, dots: [ {x, y}, ... ] }, ... ],
-        selectedPhotoIndex
+    // DOM Elements for screens
+    const homeScreen = document.getElementById('homeScreen');
+    const appDiv = document.getElementById('app');
+    const goToAppBtn = document.getElementById('goToAppBtn');
+
+    // Show/hide screens
+    goToAppBtn.addEventListener('click', () => {
+      homeScreen.style.display = 'none';
+      appDiv.style.display = 'flex';
+      refreshSidebar(); // Build the dynamic menu from DB
+    });
+
+    // Home button inside app
+    const homeBtn = document.getElementById('homeBtn');
+    homeBtn.addEventListener('click', () => {
+      appDiv.style.display = 'none';
+      homeScreen.style.display = 'block';
+    });
+
+    ///////////////////////////////////////////////////////////
+    // MANAGE EQUIPMENT MODAL
+    ///////////////////////////////////////////////////////////
+    const manageEquipBtn = document.getElementById('manageEquipBtn');
+    const manageModal = document.getElementById('manageModal');
+    const closeManageBtn = document.getElementById('closeManageBtn');
+    const allItemsList = document.getElementById('allItemsList');
+
+    const newCategorySelect = document.getElementById('newCategory');
+    const newBrandSelect = document.getElementById('newBrand');
+    const newModel = document.getElementById('newModel');
+
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const addBrandBtn = document.getElementById('addBrandBtn');
+    const addItemBtn = document.getElementById('addItemBtn');
+
+    manageEquipBtn.addEventListener('click', () => {
+      manageModal.style.display = 'block';
+      refreshCatBrandDropdowns();
+      refreshAllItems();
+    });
+    closeManageBtn.addEventListener('click', () => {
+      manageModal.style.display = 'none';
+    });
+
+    // Fill dropdowns
+    function refreshCatBrandDropdowns(){
+      newCategorySelect.innerHTML = '';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        newCategorySelect.appendChild(opt);
+      });
+      newBrandSelect.innerHTML = '';
+      brands.forEach(br => {
+        const opt = document.createElement('option');
+        opt.value = br;
+        opt.textContent = br;
+        newBrandSelect.appendChild(opt);
+      });
+    }
+
+    addCategoryBtn.addEventListener('click', () => {
+      const cat = prompt('Enter new Category name:');
+      if(cat && cat.trim() !== '') {
+        const c = cat.trim();
+        if(!categories.includes(c)){
+          categories.push(c);
+          refreshCatBrandDropdowns();
+        } else {
+          alert('Category already exists');
+        }
       }
-    ***************************************/
+    });
+
+    addBrandBtn.addEventListener('click', () => {
+      const br = prompt('Enter new Brand name:');
+      if(br && br.trim() !== '') {
+        const b = br.trim();
+        if(!brands.includes(b)){
+          brands.push(b);
+          refreshCatBrandDropdowns();
+        } else {
+          alert('Brand already exists');
+        }
+      }
+    });
+
+    addItemBtn.addEventListener('click', async () => {
+      const cat = newCategorySelect.value.trim();
+      const br = newBrandSelect.value.trim();
+      const mo = newModel.value.trim();
+      if(!cat || !br || !mo) {
+        alert('Please choose category, brand, and enter a model.');
+        return;
+      }
+      const itemId = cat.toLowerCase() + '-' + br.toLowerCase() + '-' + mo.toLowerCase();
+      const existing = await getItemData(itemId);
+      if (existing) {
+        alert('Item already exists: ' + itemId);
+      } else {
+        const newObj = createNewItem(itemId);
+        await saveItemData(newObj);
+        alert('Added item: ' + itemId);
+      }
+      newModel.value = '';
+      refreshAllItems();
+      refreshSidebar(); // Also refresh the side menu immediately
+    });
+
+    async function refreshAllItems() {
+      allItemsList.innerHTML = '';
+      const items = await getAllItems();
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item.itemId;
+        // delete button
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Delete';
+        delBtn.style.marginLeft = '10px';
+        delBtn.addEventListener('click', async () => {
+          if(confirm('Are you sure to delete ' + item.itemId + '?')) {
+            await deleteItem(item.itemId);
+            refreshAllItems();
+            refreshSidebar();
+          }
+        });
+        li.appendChild(delBtn);
+        allItemsList.appendChild(li);
+      });
+    }
+
+    ///////////////////////////////////////////////////////////
+    // BUILDING THE DYNAMIC SIDEBAR MENU
+    ///////////////////////////////////////////////////////////
+
+    async function refreshSidebar() {
+      // read all items from DB
+      const items = await getAllItems();
+      // group by category, brand => array of models
+      const catMap = {};
+      items.forEach(item => {
+        // parse itemId => category, brand, model
+        // itemId = cat-br-model
+        const parts = item.itemId.split('-');
+        if(parts.length<3) return; // skip anything malformed
+        const [cat, br, mo] = parts;
+        if(!catMap[cat]) catMap[cat] = {};
+        if(!catMap[cat][br]) catMap[cat][br] = [];
+        catMap[cat][br].push(mo);
+      });
+
+      // build UL structure with expand/collapse
+      const list = document.getElementById('equipment-list');
+      list.innerHTML = '';
+
+      Object.keys(catMap).forEach(cat => {
+        const liCat = document.createElement('li');
+        liCat.className = 'expandable';
+        liCat.style.display = 'block'; // ensure block so it expands downward
+
+        // arrow + category name
+        const arrowCat = document.createElement('span');
+        arrowCat.className = 'arrow';
+        arrowCat.textContent = '▶';
+        const titleCat = document.createElement('span');
+        titleCat.className = 'title';
+        titleCat.textContent = cat[0].toUpperCase() + cat.slice(1);
+
+        liCat.appendChild(arrowCat);
+        liCat.appendChild(titleCat);
+
+        // nested UL for brands
+        const ulBrand = document.createElement('ul');
+        ulBrand.className = 'nested';
+        ulBrand.style.paddingLeft = '1.5em';
+
+        // each brand
+        const brandMap = catMap[cat];
+        Object.keys(brandMap).forEach(br => {
+          const liBrand = document.createElement('li');
+          liBrand.className = 'expandable';
+          liBrand.style.display = 'block';
+
+          // arrow + brand name
+          const arrowBr = document.createElement('span');
+          arrowBr.className = 'arrow';
+          arrowBr.textContent = '▶';
+          const titleBr = document.createElement('span');
+          titleBr.className = 'title';
+          titleBr.textContent = br[0].toUpperCase() + br.slice(1);
+
+          liBrand.appendChild(arrowBr);
+          liBrand.appendChild(titleBr);
+
+          // nested UL for models
+          const ulModel = document.createElement('ul');
+          ulModel.className = 'nested';
+          ulModel.style.paddingLeft = '1.5em';
+
+          brandMap[br].forEach(mo => {
+            const liModel = document.createElement('li');
+            liModel.style.display = 'block';
+            const itemId = `${cat}-${br}-${mo}`;
+            liModel.dataset.id = itemId;
+            liModel.textContent = mo;
+            ulModel.appendChild(liModel);
+          });
+
+          liBrand.appendChild(ulModel);
+          ulBrand.appendChild(liBrand);
+        });
+
+        liCat.appendChild(ulBrand);
+        list.appendChild(liCat);
+      });
+    }
+
+    ///////////////////////////////////////////////////////////
+    // INDEXEDDB LOGIC
+    ///////////////////////////////////////////////////////////
 
     let db = null;
-    let currentItem = "";
+
+    function getAllItems() {
+      if(!db) return Promise.resolve([]);
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('items', 'readonly');
+        const store = tx.objectStore('items');
+        const req = store.getAll();
+        req.onsuccess = () => {
+          resolve(req.result || []);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getItemData(itemId) {
+      return new Promise((resolve,reject) => {
+        if(!db) return resolve(null);
+        const tx = db.transaction('items','readonly');
+        const store = tx.objectStore('items');
+        const getReq = store.get(itemId);
+        getReq.onsuccess = () => {
+          resolve(getReq.result || null);
+        };
+        getReq.onerror = () => reject(getReq.error);
+      });
+    }
+
+    function saveItemData(itemObj) {
+      return new Promise((resolve,reject) => {
+        if(!db) return reject('No DB');
+        const tx = db.transaction('items','readwrite');
+        const store = tx.objectStore('items');
+        const putReq = store.put(itemObj);
+        putReq.onsuccess = () => {
+          resolve(true);
+        };
+        putReq.onerror = () => reject(putReq.error);
+      });
+    }
+
+    function deleteItem(itemId) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('items', 'readwrite');
+        const store = tx.objectStore('items');
+        const req = store.delete(itemId);
+        req.onsuccess = () => {
+          resolve(true);
+        };
+        req.onerror = () => {
+          reject(req.error);
+        };
+      });
+    }
+
+    function createNewItem(itemId) {
+      return {
+        itemId,
+        notes: '',
+        sensorsCount: 0,
+        reqEpoxy: false,
+        reqNonEpoxy: false,
+        reqFin: false,
+        images: [],
+        selectedPhotoIndex: -1
+      };
+    }
+
+    // open DB
+    const openReq = indexedDB.open('equipmentDB', 1);
+    openReq.onupgradeneeded = function(e) {
+      db = e.target.result;
+      if(!db.objectStoreNames.contains('items')) {
+        db.createObjectStore('items', { keyPath: 'itemId' });
+      }
+    };
+    openReq.onsuccess = function(e) {
+      db = e.target.result;
+      console.log('IndexedDB opened successfully');
+    };
+    openReq.onerror = function(e) {
+      console.error('Error opening IndexedDB', e);
+      alert('IndexedDB not supported or error opening DB.');
+    };
+
+    ///////////////////////////////////////////////////////////
+    // COLLAPSIBLE MENU (arrow logic)
+    ///////////////////////////////////////////////////////////
+
+    let currentItem = '';
     let currentPhotoIndex = -1;
+
+    document.addEventListener('click', (e) => {
+      // arrow toggles
+      if(e.target.classList.contains('arrow')) {
+        const parentLi = e.target.closest('li');
+        const nestedUl = parentLi.querySelector('ul.nested');
+        if (nestedUl) {
+          nestedUl.classList.toggle('active');
+          e.target.textContent = (e.target.textContent === '▶') ? '▼' : '▶';
+        }
+      } else if (e.target.dataset.id) {
+        // user clicked a specific model
+        currentItem = e.target.dataset.id;
+        loadItem(currentItem);
+      }
+    });
+
+    ///////////////////////////////////////////////////////////
+    // MAIN APP: IMAGES & DOTS
+    ///////////////////////////////////////////////////////////
 
     const itemTitle = document.getElementById('item-title');
     const photoInput = document.getElementById('photoInput');
@@ -162,81 +464,9 @@
     const reqFin = document.getElementById('reqFin');
     const saveBtn = document.getElementById('saveBtn');
 
-    // Open or create IndexedDB
-    const request = indexedDB.open('equipmentDB', 1);
-    request.onupgradeneeded = function(e) {
-      db = e.target.result;
-      if (!db.objectStoreNames.contains('items')) {
-        db.createObjectStore('items', { keyPath: 'itemId' });
-      }
-    };
-    request.onsuccess = function(e) {
-      db = e.target.result;
-      console.log('IndexedDB opened successfully');
-    };
-    request.onerror = function(e) {
-      console.error('Error opening IndexedDB', e);
-      alert('IndexedDB not supported or error opening DB.');
-    };
-
-    // Collapsible menu
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('arrow')) {
-        const parentLi = e.target.closest('li');
-        const nestedUl = parentLi.querySelector('ul.nested');
-        if (nestedUl) {
-          nestedUl.classList.toggle('active');
-          e.target.textContent = (e.target.textContent === '▶') ? '▼' : '▶';
-        }
-      } else if (e.target.dataset.id) {
-        currentItem = e.target.dataset.id;
-        loadItem(currentItem);
-      }
-    });
-
-    function getItemData(itemId) {
-      return new Promise((resolve, reject) => {
-        if (!db) return resolve(null);
-        const tx = db.transaction('items', 'readonly');
-        const store = tx.objectStore('items');
-        const getReq = store.get(itemId);
-        getReq.onsuccess = () => {
-          resolve(getReq.result || null);
-        };
-        getReq.onerror = () => reject(getReq.error);
-      });
-    }
-
-    function saveItemData(itemObj) {
-      return new Promise((resolve, reject) => {
-        if (!db) return reject('No DB');
-        const tx = db.transaction('items', 'readwrite');
-        const store = tx.objectStore('items');
-        const putReq = store.put(itemObj);
-        putReq.onsuccess = () => {
-          resolve(true);
-        };
-        putReq.onerror = () => reject(putReq.error);
-      });
-    }
-
-    function createNewItem(itemId) {
-      return {
-        itemId,
-        notes: '',
-        sensorsCount: 0,
-        reqEpoxy: false,
-        reqNonEpoxy: false,
-        reqFin: false,
-        images: [],
-        selectedPhotoIndex: -1
-      };
-    }
-
     async function loadItem(itemId) {
       const data = await getItemData(itemId);
-      if (!data) {
-        // create new
+      if(!data) {
         const newObj = createNewItem(itemId);
         await saveItemData(newObj);
         return loadItem(itemId);
@@ -254,24 +484,24 @@
 
     function setItemTitle(itemId) {
       const parts = itemId.split('-');
-      if (parts.length >= 3) {
+      if(parts.length >= 3) {
         const brand = parts[1][0].toUpperCase() + parts[1].slice(1);
         const model = parts[2];
-        itemTitle.textContent = brand + ' - ' + model;
+        itemTitle.textContent = `${brand} - ${model}`;
       } else {
         itemTitle.textContent = itemId;
       }
     }
 
-    // File input
-    photoInput.addEventListener('change', async (e) => {
-      if (!currentItem) {
+    // handle photo input
+    photoInput.addEventListener('change', async(e) => {
+      if(!currentItem) {
         alert('Select an item first!');
         photoInput.value = null;
         return;
       }
       const files = e.target.files;
-      if (!files || files.length === 0) {
+      if(!files || files.length===0) {
         uploadStatus.textContent = 'No files selected.';
         return;
       }
@@ -280,360 +510,253 @@
       photoInput.value = null;
     });
 
-    // Drag & drop
-    dropZone.addEventListener('dragenter', (e) => {
+    dropZone.addEventListener('dragenter',(e)=>{
       e.preventDefault();
       dropZone.classList.add('dragover');
     });
-    dropZone.addEventListener('dragover', (e) => {
+    dropZone.addEventListener('dragover',(e)=>{
       e.preventDefault();
     });
-    dropZone.addEventListener('dragleave', () => {
+    dropZone.addEventListener('dragleave',()=>{
       dropZone.classList.remove('dragover');
     });
-    dropZone.addEventListener('drop', async (e) => {
+    dropZone.addEventListener('drop', async(e)=>{
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      if (!currentItem) {
+      if(!currentItem) {
         alert('Select an item first!');
         return;
       }
       const dtFiles = e.dataTransfer.files;
-      if (dtFiles && dtFiles.length > 0) {
+      if(dtFiles && dtFiles.length>0) {
         await handlePhotos(dtFiles);
       }
     });
 
-    async function handlePhotos(fileList) {
+    async function handlePhotos(fileList){
       const data = await getItemData(currentItem);
-      if (!data) return;
+      if(!data) return;
       let addedCount = 0;
-      for (let i = 0; i < fileList.length; i++) {
+      for(let i=0; i<fileList.length; i++){
         const file = fileList[i];
         const dataUrl = await fileToDataUrl(file);
-        data.images.push({ src: dataUrl, dots: [] });
+        data.images.push({src:dataUrl, dots:[]});
         addedCount++;
       }
-      data.selectedPhotoIndex = data.images.length - 1;
+      data.selectedPhotoIndex = data.images.length-1;
       await saveItemData(data);
       uploadStatus.textContent = `Uploaded ${addedCount} photo(s).`;
       loadItem(currentItem);
     }
 
-    function fileToDataUrl(file) {
-      return new Promise((resolve, reject) => {
+    function fileToDataUrl(file){
+      return new Promise((resolve,reject)=>{
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
+        reader.onload=()=>resolve(reader.result);
+        reader.onerror=()=>reject(reader.error);
         reader.readAsDataURL(file);
       });
     }
 
-    function renderThumbnails(itemData) {
-      thumbnailsDiv.innerHTML = '';
-      itemData.images.forEach((imgObj, index) => {
+    function renderThumbnails(itemData){
+      thumbnailsDiv.innerHTML='';
+      itemData.images.forEach((imgObj,index)=>{
         const thumb = document.createElement('img');
-        thumb.className = 'thumbnail';
-        thumb.src = imgObj.src;
-        thumb.addEventListener('click', async () => {
-          itemData.selectedPhotoIndex = index;
+        thumb.className='thumbnail';
+        thumb.src=imgObj.src;
+        thumb.addEventListener('click', async()=>{
+          itemData.selectedPhotoIndex=index;
           await saveItemData(itemData);
-          currentPhotoIndex = index;
+          currentPhotoIndex=index;
           showLargePhoto(itemData);
         });
         thumbnailsDiv.appendChild(thumb);
       });
     }
 
-    function showLargePhoto(itemData) {
-      document.querySelectorAll('.dot').forEach(d => d.remove());
-      if (itemData.selectedPhotoIndex < 0 || !itemData.images[itemData.selectedPhotoIndex]) {
-        largePhoto.src = '';
+    function showLargePhoto(itemData){
+      document.querySelectorAll('.dot').forEach(d=>d.remove());
+      if(itemData.selectedPhotoIndex<0 || !itemData.images[itemData.selectedPhotoIndex]){
+        largePhoto.src='';
         return;
       }
       const photo = itemData.images[itemData.selectedPhotoIndex];
-      largePhoto.src = photo.src;
-      photo.dots.forEach(dotData => {
-        createDotElement(dotData.x, dotData.y);
+      largePhoto.src=photo.src;
+      photo.dots.forEach(dotData=>{
+        createDotElement(dotData.x,dotData.y);
       });
     }
 
-    largePhoto.addEventListener('click', async (e) => {
-      if (!currentItem) return;
+    largePhoto.addEventListener('click', async(e)=>{
+      if(!currentItem) return;
       const data = await getItemData(currentItem);
-      if (!data) return;
-      if (data.selectedPhotoIndex < 0) return;
-      const rect = largePhoto.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
-      createDotElement(offsetX + 'px', offsetY + 'px');
-      data.images[data.selectedPhotoIndex].dots.push({ x: offsetX + 'px', y: offsetY + 'px' });
+      if(!data) return;
+      if(data.selectedPhotoIndex<0) return;
+      const rect=largePhoto.getBoundingClientRect();
+      const offsetX=e.clientX-rect.left;
+      const offsetY=e.clientY-rect.top;
+      createDotElement(offsetX+'px',offsetY+'px');
+      data.images[data.selectedPhotoIndex].dots.push({x:offsetX+'px',y:offsetY+'px'});
       await saveItemData(data);
     });
 
-    function createDotElement(left, top) {
-      const dot = document.createElement('div');
-      dot.className = 'dot';
-      dot.style.left = left;
-      dot.style.top = top;
+    function createDotElement(left, top){
+      const dot=document.createElement('div');
+      dot.className='dot';
+      dot.style.left=left;
+      dot.style.top=top;
       dot.addEventListener('mousedown', onDotMouseDown);
       document.getElementById('photoArea').appendChild(dot);
     }
 
-    async function onDotMouseDown(e) {
-      if (!currentItem) return;
-      const dot = e.target;
-      let startX = e.clientX;
-      let startY = e.clientY;
-      let initLeft = parseFloat(dot.style.left);
-      let initTop = parseFloat(dot.style.top);
-
-      function onMouseMove(evt) {
+    async function onDotMouseDown(e){
+      if(!currentItem) return;
+      const dot=e.target;
+      let startX=e.clientX;
+      let startY=e.clientY;
+      let initLeft=parseFloat(dot.style.left);
+      let initTop=parseFloat(dot.style.top);
+      function onMouseMove(evt){
         evt.preventDefault();
-        const dx = evt.clientX - startX;
-        const dy = evt.clientY - startY;
-        dot.style.left = (initLeft + dx) + 'px';
-        dot.style.top = (initTop + dy) + 'px';
+        const dx=evt.clientX-startX;
+        const dy=evt.clientY-startY;
+        dot.style.left=(initLeft+dx)+'px';
+        dot.style.top=(initTop+dy)+'px';
       }
-
-      async function onMouseUp() {
+      async function onMouseUp(){
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         await updateDotPositions();
       }
-
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     }
 
-    async function updateDotPositions() {
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      const photo = data.images[data.selectedPhotoIndex];
-      if (!photo) return;
-      const dotEls = document.querySelectorAll('.dot');
-      const newDots = Array.from(dotEls).map(d => ({ x: d.style.left, y: d.style.top }));
-      photo.dots = newDots;
+    async function updateDotPositions(){
+      const data=await getItemData(currentItem);
+      if(!data) return;
+      const photo=data.images[data.selectedPhotoIndex];
+      if(!photo) return;
+      const dotEls=document.querySelectorAll('.dot');
+      const newDots=Array.from(dotEls).map(d=>({x:d.style.left,y:d.style.top}));
+      photo.dots=newDots;
       await saveItemData(data);
     }
 
-    clearDotsBtn.addEventListener('click', async () => {
-      if (!currentItem) return;
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      if (data.selectedPhotoIndex < 0) return;
-      data.images[data.selectedPhotoIndex].dots = [];
+    clearDotsBtn.addEventListener('click', async()=>{
+      if(!currentItem) return;
+      const data=await getItemData(currentItem);
+      if(!data) return;
+      if(data.selectedPhotoIndex<0) return;
+      data.images[data.selectedPhotoIndex].dots=[];
       await saveItemData(data);
       showLargePhoto(data);
     });
 
-    deletePhotoBtn.addEventListener('click', async () => {
-      if (!currentItem) return;
-      const data = await getItemData(currentItem);
-      if (!data) return;
-      const idx = data.selectedPhotoIndex;
-      if (idx < 0 || !data.images[idx]) return;
-      data.images.splice(idx, 1);
-      data.selectedPhotoIndex = -1;
+    deletePhotoBtn.addEventListener('click', async()=>{
+      if(!currentItem) return;
+      const data=await getItemData(currentItem);
+      if(!data) return;
+      const idx=data.selectedPhotoIndex;
+      if(idx<0||!data.images[idx]) return;
+      data.images.splice(idx,1);
+      data.selectedPhotoIndex=-1;
       await saveItemData(data);
       loadItem(currentItem);
     });
 
-    editSensorsBtn.addEventListener('click', async () => {
-      sensorsCountInput.disabled = !sensorsCountInput.disabled;
-      if (!sensorsCountInput.disabled) {
-        editSensorsBtn.textContent = 'Lock';
+    editSensorsBtn.addEventListener('click', async()=>{
+      sensorsCountInput.disabled=!sensorsCountInput.disabled;
+      if(!sensorsCountInput.disabled){
+        editSensorsBtn.textContent='Lock';
       } else {
-        editSensorsBtn.textContent = 'Edit';
+        editSensorsBtn.textContent='Edit';
         await saveChanges();
       }
     });
 
     saveBtn.addEventListener('click', saveChanges);
-
-    async function saveChanges() {
-      if (!currentItem) return;
-      let data = await getItemData(currentItem);
-      if (!data) return;
-      data.notes = notesText.value;
-      data.sensorsCount = parseInt(sensorsCountInput.value) || 0;
-      data.reqEpoxy = reqEpoxy.checked;
-      data.reqNonEpoxy = reqNonEpoxy.checked;
-      data.reqFin = reqFin.checked;
+    async function saveChanges(){
+      if(!currentItem) return;
+      const data=await getItemData(currentItem);
+      if(!data) return;
+      data.notes=notesText.value;
+      data.sensorsCount=parseInt(sensorsCountInput.value)||0;
+      data.reqEpoxy=reqEpoxy.checked;
+      data.reqNonEpoxy=reqNonEpoxy.checked;
+      data.reqFin=reqFin.checked;
       await saveItemData(data);
     }
-
   </script>
 
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background-color: #F4F6F8;
       color: #1f2937;
-      height: 100vh;
-      overflow: hidden;
-    }
-    #app {
-      display: flex;
-      height: 100%;
-    }
-    #sidebar {
-      width: 250px;
-      background-color: #1F1F1F;
-      color: white;
-      padding: 10px;
-      overflow-y: auto;
-    }
-    #sidebar input {
-      width: 100%;
-      padding: 6px;
-      margin-bottom: 10px;
-      border: none;
-      border-radius: 4px;
-    }
-    #equipment-list {
-      list-style: none;
-    }
-    #equipment-list li {
-      position: relative;
-      padding: 5px 0;
-    }
-    #equipment-list li[data-id]:hover {
-      background-color: #2F2F2F;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .title:hover {
-      background-color: #2F2F2F;
-      border-radius: 4px;
-      padding: 0 2px;
-      cursor: pointer;
-    }
-    .arrow {
-      display: inline-block;
-      width: 20px;
-      user-select: none;
-      margin-right: 5px;
-      color: #00c266;
-      cursor: pointer;
-    }
-    .expandable > ul {
-      padding-left: 1.5em;
-      display: none;
-    }
-    .expandable > ul.active {
-      display: block;
-    }
-
-    #content {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-      background-color: #fff;
-    }
-    #item-title {
-      margin-bottom: 10px;
-      font-size: 1.25rem;
-      font-weight: 600;
-    }
-    .photo-controls {
-      margin-bottom: 10px;
-    }
-    #dropZone {
-      width: 100%;
-      max-width: 600px;
-      min-height: 60px;
-      border: 2px dashed #ccc;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      margin-bottom: 20px;
-      color: #666;
-      font-size: 14px;
-      padding: 10px;
-    }
-    #dropZone.dragover {
-      border-color: #00c266;
-      background-color: #eef;
-      color: #00a84f;
-    }
-    #thumbnails {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .thumbnail {
-      width: 100px;
-      height: 70px;
-      object-fit: cover;
-      cursor: pointer;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    #photoArea {
-      position: relative;
-      max-width: 600px;
-      border: 1px solid #ccc;
-      margin-bottom: 20px;
-    }
-    #largePhoto {
-      width: 100%;
-      display: block;
-      cursor: crosshair;
+      margin: 0;
     }
     .dot {
-      width: 10px;
-      height: 10px;
-      background: #00c266;
-      border-radius: 50%;
-      position: absolute;
-      transform: translate(-50%, -50%);
+      width:10px; height:10px;
+      background:#00c266;
+      border-radius:50%;
+      position:absolute;
+      transform:translate(-50%,-50%);
+      cursor:pointer;
     }
-    .info {
-      margin-top: 20px;
+    .arrow {
+      display:inline-block;
+      width:20px;
+      user-select:none;
+      margin-right:5px;
+      color:#00c266;
+      cursor:pointer;
+      vertical-align:middle;
     }
-    #sensor-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
+    .title {
+      vertical-align:middle;
     }
-    #sensorsCount {
-      width: 80px;
-      padding: 5px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+    .expandable>ul {
+      display:none;
+      padding-left:1.5em;
     }
-    textarea {
-      width: 100%;
-      height: 100px;
-      resize: vertical;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      margin-bottom: 10px;
+    .expandable>ul.active {
+      display:block;
     }
-    button {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background-color: #00c266;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 600;
-      margin-right: 8px;
+
+    /* Remove flex from li to ensure the list expands downward. */
+    #equipment-list li {
+      position:relative;
+      padding:5px 0;
+      display:block;
     }
-    button:hover {
-      background-color: #00a84f;
+
+    #equipment-list li[data-id]:hover {
+      background-color:#2F2F2F;
+      border-radius:4px;
+      cursor:pointer;
+    }
+
+    .title:hover {
+      background-color:#2F2F2F;
+      border-radius:4px;
+      padding:0 2px;
+      cursor:pointer;
+    }
+
+    /* Modal styling */
+    #manageModal {
+      z-index:9999;
+    }
+
+    /* Thumbnails styling */
+    .thumbnail {
+      width:100px;
+      height:70px;
+      object-fit:cover;
+      cursor:pointer;
+      border:1px solid #ccc;
+      border-radius:4px;
     }
   </style>
 </body>
